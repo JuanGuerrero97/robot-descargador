@@ -1,3 +1,3 @@
-print("Hola")
+print("Hola, estoy aprendiendo git")
 
 
