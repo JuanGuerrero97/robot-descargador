@@ -1,0 +1,23 @@
+# 📦 Caja de Envío para Nuestro Robot
+
+# Usamos una caja que ya tiene Python instalado
+FROM python:3.11-slim
+
+# Le ponemos una etiqueta
+LABEL description="🤖 Robot Descargador de Listas para Niños"
+
+# Crear una carpeta para nuestro robot
+WORKDIR /app
+
+# Decirle qué necesita instalar
+COPY requirements.txt .
+RUN pip install -r requirements.txt
+
+# Meter nuestro robot en la caja
+COPY app/ ./app/
+
+# Crear la carpeta donde guarda las cosas
+RUN mkdir -p data
+
+# Decirle al robot qué hacer cuando se despierte
+CMD ["python", "app/robot.py"]
