@@ -1,5 +1,4 @@
-# 🤖 Robot Descargador de Listas REALES OFAC/ONU
-# ¡Este robot descarga las listas oficiales!
+# 🤖 Robot OFAC Mejorado - Múltiples estrategias automáticas
 
 import requests
 import datetime
@@ -7,269 +6,269 @@ import os
 import time
 from bs4 import BeautifulSoup
 import urllib.parse
+import random
 
-class RobotDescargadorReal:
+class RobotOFACMejorado:
     def __init__(self):
-        print("🤖 ¡Hola! Soy tu robot descargador de listas REALES")
-        print("📁 Voy a crear la carpeta 'data' si no existe")
+        print("🤖 ¡Robot OFAC Mejorado iniciado!")
         os.makedirs('data', exist_ok=True)
         
-        # URLs de las páginas oficiales
-        self.sources = {
-            'ofac': {
-                'page_url': 'https://sanctionslist.ofac.treas.gov/Home/SdnList',
-                'target_file': 'SDN_ENHANCED.XML',
-                'description': 'Lista OFAC - Specially Designated Nationals'
+        # URLs múltiples de OFAC para intentar
+        self.ofac_urls = [
+            "https://www.treasury.gov/ofac/downloads/sdn.xml",
+            "https://sanctionslist.ofac.treas.gov/api/PublicationPreview/exports/SDN_ENHANCED.XML",
+            "https://www.treasury.gov/ofac/downloads/sdn_enhanced.xml",
+            "https://sanctionslist.ofac.treas.gov/api/PublicationPreview/exports/sdn.xml"
+        ]
+        
+        # Headers múltiples para rotar
+        self.headers_list = [
+            {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                'Accept-Language': 'en-US,en;q=0.5',
+                'Accept-Encoding': 'gzip, deflate, br',
+                'Connection': 'keep-alive',
+                'Upgrade-Insecure-Requests': '1'
             },
-            'onu': {
-                'page_url': 'https://main.un.org/securitycouncil/es/content/un-sc-consolidated-list',
-                'xml_button': 'Xml',
-                'description': 'Lista Consolidada ONU - Consejo de Seguridad'
+            {
+                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Accept': 'application/xml,text/xml,*/*',
+                'Accept-Language': 'en-US,en;q=0.9',
+                'Cache-Control': 'no-cache',
+                'Pragma': 'no-cache'
+            },
+            {
+                'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Accept': '*/*',
+                'Accept-Language': 'en-US,en;q=0.8',
+                'Referer': 'https://sanctionslist.ofac.treas.gov/'
             }
-        }
+        ]
     
-    def get_ofac_download_url(self):
-        """Encuentra la URL real del archivo SDN_ENHANCED.XML"""
-        try:
-            print("🔍 Buscando enlace de descarga de OFAC...")
-            
-            response = requests.get(self.sources['ofac']['page_url'], timeout=30)
-            response.raise_for_status()
-            
-            soup = BeautifulSoup(response.text, 'html.parser')
-            
-            # Buscar enlaces que contengan SDN_ENHANCED.XML
-            for link in soup.find_all('a', href=True):
-                href = link.get('href', '')
-                if 'SDN_ENHANCED.XML' in href or 'sdn_enhanced.xml' in href.lower():
-                    if href.startswith('http'):
-                        print(f"✅ Encontré enlace OFAC: {href}")
-                        return href
-                    else:
-                        # URL relativa, construir URL completa
-                        base_url = 'https://sanctionslist.ofac.treas.gov'
-                        full_url = urllib.parse.urljoin(base_url, href)
-                        print(f"✅ Encontré enlace OFAC: {full_url}")
-                        return full_url
-            
-            # Si no encontramos el enlace, usar URL conocida
-            fallback_url = "https://sanctionslist.ofac.treas.gov/api/PublicationPreview/exports/SDN_ENHANCED.XML"
-            print(f"⚠️ No encontré enlace específico, usando URL conocida: {fallback_url}")
-            return fallback_url
-            
-        except Exception as e:
-            print(f"❌ Error buscando enlace OFAC: {e}")
-            # URL de respaldo
-            return "https://sanctionslist.ofac.treas.gov/api/PublicationPreview/exports/SDN_ENHANCED.XML"
-    
-    def get_onu_download_url(self):
-        """Encuentra la URL real del XML de la ONU"""
-        try:
-            print("🔍 Buscando enlace de descarga de ONU...")
-            
-            response = requests.get(self.sources['onu']['page_url'], timeout=30)
-            response.raise_for_status()
-            
-            soup = BeautifulSoup(response.text, 'html.parser')
-            
-            # Buscar botón o enlace XML
-            for element in soup.find_all(['a', 'button'], href=True):
-                text = element.get_text().strip().lower()
-                href = element.get('href', '')
+    def download_with_retry(self, url, headers, max_retries=3):
+        """Descarga con reintentos y backoff exponencial"""
+        for attempt in range(max_retries):
+            try:
+                wait_time = random.uniform(2, 8) + (attempt * 3)  # 2-8 segundos + incremento
+                print(f"⏳ Esperando {wait_time:.1f} segundos antes del intento {attempt + 1}")
+                time.sleep(wait_time)
                 
-                if 'xml' in text and ('consolidat' in text.lower() or 'lista' in text.lower()):
-                    if href.startswith('http'):
-                        print(f"✅ Encontré enlace ONU: {href}")
-                        return href
-                    else:
-                        base_url = 'https://main.un.org'
-                        full_url = urllib.parse.urljoin(base_url, href)
-                        print(f"✅ Encontré enlace ONU: {full_url}")
-                        return full_url
-            
-            # Buscar cualquier enlace que contenga 'xml' y 'consolidated'
-            for link in soup.find_all('a', href=True):
-                href = link.get('href', '')
-                if 'xml' in href.lower() and 'consolidat' in href.lower():
-                    if href.startswith('http'):
-                        print(f"✅ Encontré enlace ONU por href: {href}")
-                        return href
-                    else:
-                        base_url = 'https://main.un.org'
-                        full_url = urllib.parse.urljoin(base_url, href)
-                        print(f"✅ Encontré enlace ONU por href: {full_url}")
-                        return full_url
-            
-            # URL conocida de respaldo
-            fallback_url = "https://scsanctions.un.org/resources/xml/en/consolidated.xml"
-            print(f"⚠️ No encontré enlace específico, usando URL conocida: {fallback_url}")
-            return fallback_url
-            
-        except Exception as e:
-            print(f"❌ Error buscando enlace ONU: {e}")
-            return "https://scsanctions.un.org/resources/xml/en/consolidated.xml"
+                print(f"📥 Intento {attempt + 1}: Descargando desde {url}")
+                
+                response = requests.get(url, headers=headers, timeout=60, stream=True)
+                
+                print(f"📊 Status code: {response.status_code}")
+                
+                if response.status_code == 200:
+                    return response
+                elif response.status_code == 403:
+                    print("❌ Error 403 - Acceso denegado")
+                    continue
+                elif response.status_code == 429:
+                    print("⚠️ Error 429 - Rate limit, esperando más tiempo...")
+                    time.sleep(30)  # Esperar 30 segundos en rate limit
+                    continue
+                else:
+                    print(f"⚠️ Error {response.status_code}")
+                    continue
+                    
+            except requests.exceptions.Timeout:
+                print("⏰ Timeout - reintentando...")
+                continue
+            except requests.exceptions.RequestException as e:
+                print(f"❌ Error de conexión: {e}")
+                continue
+        
+        return None
     
-    def download_file(self, url, filename):
-        """Descarga un archivo desde una URL"""
+    def descargar_ofac_multiple_estrategias(self):
+        """Prueba múltiples URLs y headers para OFAC"""
+        print("\n🚀 === ESTRATEGIA MÚLTIPLE PARA OFAC ===")
+        
+        for i, url in enumerate(self.ofac_urls):
+            print(f"\n🔍 Probando URL {i+1}/{len(self.ofac_urls)}: {url}")
+            
+            # Rotar headers
+            headers = self.headers_list[i % len(self.headers_list)]
+            
+            response = self.download_with_retry(url, headers)
+            
+            if response:
+                return self.save_ofac_file(response)
+            else:
+                print(f"❌ Falló URL {i+1}")
+                continue
+        
+        print("❌ Todas las URLs de OFAC fallaron")
+        return False
+    
+    def save_ofac_file(self, response):
+        """Guarda el archivo OFAC descargado"""
         try:
-            print(f"📥 Descargando desde: {url}")
-            
-            # Headers para parecer un navegador real
-            headers = {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-            }
-            
-            response = requests.get(url, headers=headers, timeout=300, stream=True)
-            response.raise_for_status()
-            
-            # Verificar que el contenido sea XML
+            # Verificar que sea XML
             content_type = response.headers.get('content-type', '').lower()
             print(f"📄 Tipo de contenido: {content_type}")
             
+            # Generar nombre de archivo
+            timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = f"ofac_sdn_enhanced_{timestamp}.xml"
+            filepath = os.path.join('data', filename)
+            
+            # Guardar archivo
+            with open(filepath, 'wb') as f:
+                for chunk in response.iter_content(chunk_size=8192):
+                    f.write(chunk)
+            
+            # Verificar descarga
+            if os.path.exists(filepath) and os.path.getsize(filepath) > 10000:  # Al menos 10KB
+                size_mb = round(os.path.getsize(filepath) / (1024 * 1024), 2)
+                print(f"✅ OFAC descargado exitosamente: {filename} ({size_mb} MB)")
+                
+                # Crear enlace fácil
+                latest_file = os.path.join('data', 'ofac_latest.xml')
+                if os.path.exists(latest_file):
+                    os.remove(latest_file)
+                
+                import shutil
+                shutil.copy2(filepath, latest_file)
+                print(f"🔗 Creado enlace: ofac_latest.xml")
+                
+                return True
+            else:
+                print(f"❌ Archivo muy pequeño o vacío")
+                return False
+                
+        except Exception as e:
+            print(f"❌ Error guardando archivo OFAC: {e}")
+            return False
+    
+    def descargar_onu_mejorado(self):
+        """Descarga ONU con estrategia mejorada"""
+        print("\n🔍 === DESCARGANDO ONU (MEJORADO) ===")
+        
+        onu_urls = [
+            "https://scsanctions.un.org/resources/xml/en/consolidated.xml",
+            "https://scsanctions.un.org/resources/xml/sp/consolidated.xml"
+        ]
+        
+        for url in onu_urls:
+            print(f"🔍 Probando ONU: {url}")
+            
+            headers = random.choice(self.headers_list)
+            response = self.download_with_retry(url, headers, max_retries=2)
+            
+            if response:
+                return self.save_onu_file(response)
+        
+        return False
+    
+    def save_onu_file(self, response):
+        """Guarda archivo ONU"""
+        try:
+            timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = f"onu_consolidated_{timestamp}.xml"
             filepath = os.path.join('data', filename)
             
             with open(filepath, 'wb') as f:
                 for chunk in response.iter_content(chunk_size=8192):
                     f.write(chunk)
             
-            # Verificar que el archivo se descargó correctamente
-            if os.path.exists(filepath) and os.path.getsize(filepath) > 1000:  # Al menos 1KB
+            if os.path.exists(filepath) and os.path.getsize(filepath) > 1000:
                 size_mb = round(os.path.getsize(filepath) / (1024 * 1024), 2)
-                print(f"✅ Descarga exitosa: {filename} ({size_mb} MB)")
+                print(f"✅ ONU descargado: {filename} ({size_mb} MB)")
+                
+                # Crear enlace fácil
+                latest_file = os.path.join('data', 'onu_latest.xml')
+                if os.path.exists(latest_file):
+                    os.remove(latest_file)
+                
+                import shutil
+                shutil.copy2(filepath, latest_file)
+                print(f"🔗 Creado enlace: onu_latest.xml")
+                
                 return True
             else:
-                print(f"❌ Archivo descargado está vacío o muy pequeño")
                 return False
                 
         except Exception as e:
-            print(f"❌ Error descargando {filename}: {e}")
+            print(f"❌ Error guardando ONU: {e}")
             return False
     
-    def descargar_lista_ofac(self):
-        """Descarga la lista real de OFAC"""
-        print("\n📋 === DESCARGANDO LISTA OFAC ===")
-        
-        download_url = self.get_ofac_download_url()
-        if not download_url:
-            print("❌ No se pudo obtener URL de descarga de OFAC")
-            return False
-        
-        # Generar nombre de archivo con timestamp
-        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"ofac_sdn_enhanced_{timestamp}.xml"
-        
-        success = self.download_file(download_url, filename)
-        
-        if success:
-            # Crear enlace al archivo más reciente
-            latest_file = os.path.join('data', 'ofac_latest.xml')
-            if os.path.exists(latest_file):
-                os.remove(latest_file)
-            
-            # Crear copia con nombre fijo
-            import shutil
-            shutil.copy2(os.path.join('data', filename), latest_file)
-            print(f"🔗 Creado enlace: ofac_latest.xml")
-        
-        return success
-    
-    def descargar_lista_onu(self):
-        """Descarga la lista real de la ONU"""
-        print("\n📋 === DESCARGANDO LISTA ONU ===")
-        
-        download_url = self.get_onu_download_url()
-        if not download_url:
-            print("❌ No se pudo obtener URL de descarga de ONU")
-            return False
-        
-        # Generar nombre de archivo con timestamp
-        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"onu_consolidated_{timestamp}.xml"
-        
-        success = self.download_file(download_url, filename)
-        
-        if success:
-            # Crear enlace al archivo más reciente
-            latest_file = os.path.join('data', 'onu_latest.xml')
-            if os.path.exists(latest_file):
-                os.remove(latest_file)
-            
-            # Crear copia con nombre fijo
-            import shutil
-            shutil.copy2(os.path.join('data', filename), latest_file)
-            print(f"🔗 Creado enlace: onu_latest.xml")
-        
-        return success
-    
-    def descargar_todas_las_listas(self):
-        """Descarga todas las listas reales"""
-        print("\n🚀 ¡Empezando descarga de LISTAS REALES!")
+    def ejecutar_descarga_completa(self):
+        """Ejecuta descarga completa con estrategias mejoradas"""
+        print("🚀 ¡ROBOT MEJORADO - INICIANDO DESCARGA AUTOMÁTICA!")
         print("=" * 60)
         
         resultados = {}
         
-        # Descargar OFAC
-        resultados['ofac'] = self.descargar_lista_ofac()
+        # Descargar OFAC con múltiples estrategias
+        print("🇺🇸 Descargando OFAC...")
+        resultados['ofac'] = self.descargar_ofac_multiple_estrategias()
         
-        print("\n⏳ Esperando 5 segundos entre descargas...")
-        time.sleep(5)
+        # Pausa entre descargas
+        print("\n⏳ Pausa de 10 segundos entre descargas...")
+        time.sleep(10)
         
         # Descargar ONU
-        resultados['onu'] = self.descargar_lista_onu()
+        print("🇺🇳 Descargando ONU...")
+        resultados['onu'] = self.descargar_onu_mejorado()
         
-        # Mostrar resumen final
+        # Resumen final
+        self.mostrar_resumen(resultados)
+        return resultados
+    
+    def mostrar_resumen(self, resultados):
+        """Muestra resumen final"""
         print("\n" + "=" * 60)
         print("📊 RESUMEN FINAL:")
+        
+        for fuente, exito in resultados.items():
+            emoji = "✅" if exito else "❌"
+            nombre = "OFAC - Specially Designated Nationals" if fuente == 'ofac' else "ONU - Lista Consolidada"
+            print(f"  {emoji} {fuente.upper()}: {nombre}")
+        
         exitosas = sum(resultados.values())
         total = len(resultados)
-        
-        for lista, exito in resultados.items():
-            emoji = "✅" if exito else "❌"
-            description = self.sources[lista]['description']
-            print(f"  {emoji} {lista.upper()}: {description}")
         
         print(f"\n🎯 Total: {exitosas}/{total} listas descargadas")
         
         if exitosas == total:
-            print("🎉 ¡TODAS las listas REALES se descargaron correctamente!")
+            print("🎉 ¡TODAS las listas se descargaron exitosamente!")
+        elif exitosas > 0:
+            print("⚠️ Descarga parcial - algunas listas exitosas")
         else:
-            print("⚠️  Algunas listas fallaron")
+            print("❌ No se pudo descargar ninguna lista")
         
-        return resultados
+        # Mostrar archivos
+        self.mostrar_archivos()
     
     def mostrar_archivos(self):
-        """Muestra información de los archivos descargados"""
-        print("\n📁 ARCHIVOS DESCARGADOS:")
+        """Muestra archivos descargados"""
+        print("\n📁 ARCHIVOS DISPONIBLES:")
         print("=" * 50)
         
         if os.path.exists('data'):
-            archivos = os.listdir('data')
+            archivos = [f for f in os.listdir('data') if f.endswith('.xml')]
             if archivos:
                 for archivo in sorted(archivos):
                     ruta = os.path.join('data', archivo)
-                    if os.path.isfile(ruta):
-                        size_mb = round(os.path.getsize(ruta) / (1024 * 1024), 2)
-                        print(f"📄 {archivo} ({size_mb} MB)")
+                    size_mb = round(os.path.getsize(ruta) / (1024 * 1024), 2)
+                    print(f"📄 {archivo} ({size_mb} MB)")
             else:
-                print("🤷 No hay archivos todavía")
+                print("🤷 No hay archivos XML")
         else:
-            print("❌ La carpeta 'data' no existe")
+            print("❌ Carpeta data no existe")
 
-# 🚀 ¡AQUÍ EMPIEZA LA MAGIA!
+# 🚀 EJECUCIÓN PRINCIPAL
 if __name__ == "__main__":
-    print("🌟 ¡Robot Descargador de Listas REALES OFAC/ONU!")
-    print("🔄 Descargando listas oficiales de sanciones...")
+    print("🌟 Robot OFAC Mejorado - Descarga Automática 100%")
+    print("🔄 Usando múltiples estrategias anti-bloqueo...")
     print()
     
-    # Crear nuestro robot
-    robot = RobotDescargadorReal()
+    robot = RobotOFACMejorado()
+    robot.ejecutar_descarga_completa()
     
-    # Pedirle que descargue todo
-    robot.descargar_todas_las_listas()
-    
-    # Mostrar qué descargó
-    robot.mostrar_archivos()
-    
-    print("\n🎉 ¡El robot terminó su trabajo!")
-    print("💤 Ahora se va a dormir...")
-    print("🔄 Volverá a trabajar según su programación automática")
+    print("\n🎉 ¡Proceso completado!")
+    print("💤 Robot entrando en modo de espera...")
+    print("🔄 Próxima ejecución automática según programación")
