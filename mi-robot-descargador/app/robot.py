@@ -112,7 +112,7 @@ class RobotOFACMejorado:
             
             # Generar nombre de archivo
             timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-            filename = f"ofac_sdn_enhanced_{timestamp}.xml"
+            filename = f"ofac_sdn_enhanced.xml"
             filepath = os.path.join('data', filename)
             
             # Guardar archivo
@@ -167,7 +167,7 @@ class RobotOFACMejorado:
         """Guarda archivo ONU"""
         try:
             timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-            filename = f"onu_consolidated_{timestamp}.xml"
+            filename = f"onu_consolidated.xml"
             filepath = os.path.join('data', filename)
             
             with open(filepath, 'wb') as f:
